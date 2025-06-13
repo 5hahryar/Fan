@@ -29,7 +29,7 @@ const float HYSTERESIS = 1.0;                   // 1.0 degree Celsius hysteresis
 
 // --- Control Pin for the Switch/Relay ---
 const int controlPin = 2;                       // Digital pin 2 (e.g., for a relay module)
-int currentSwitchState = LOW;                   // Track the current state of the switch (LOW = OFF, HIGH = ON)
+int currentSwitchState = HIGH;                   // Track the current state of the switch (LOW = ON, HIGH = OFF)
 
 // Function prototypes
 float readTemperature();
@@ -66,6 +66,7 @@ void setup() {
   // Initialize the digital pin (switchPin) as an output.
   // This means the Arduino will control the voltage on this pin.
   pinMode(controlPin, OUTPUT);
+  digitalWrite(controlPin, HIGH);  // Turn cooling device OFF at startup
 }
 
 void loop() {
@@ -172,7 +173,7 @@ void loop() {
             else if (currentThermostatMode == ON) jsonResponse += "ON"; // Report "ON" mode
             jsonResponse += "\",";
             jsonResponse += "\"switchState\": \"";
-            jsonResponse += (currentSwitchState == HIGH ? "ON" : "OFF"); // Report current switch state
+            jsonResponse += (currentSwitchState == HIGH ? "OFF" : "ON"); // Report current switch state
             jsonResponse += "\"}";
             
             // Send standard HTTP response header
@@ -219,53 +220,53 @@ float readTemperature() {
 
 // Function to apply thermostat logic based on current temperature, target, and mode
 void applyThermostatLogic(float currentTemp) {
-  // Serial.print("Mode: ");
-  // Serial.print(currentThermostatMode == OFF ? "OFF" : (currentThermostatMode == COOLING ? "COOLING" : (currentThermostatMode == HEATING ? "HEATING" : "ON")));
-  // Serial.print(", Target: ");
-  // Serial.print(targetTemperature);
-  // Serial.print(", Current Switch State: ");
-  // Serial.println(currentSwitchState == HIGH ? "ON" : "OFF");
+  Serial.print("Mode: ");
+  Serial.print(currentThermostatMode == OFF ? "OFF" : (currentThermostatMode == COOLING ? "COOLING" : (currentThermostatMode == HEATING ? "HEATING" : "ON")));
+  Serial.print(", Target: ");
+  Serial.print(targetTemperature);
+  Serial.print(", Current Switch State: ");
+  Serial.println(currentSwitchState == HIGH ? "OFF" : "ON");
 
   if (currentThermostatMode == COOLING) {
     // Cooling mode: Turn ON if temperature > target + hysteresis, turn OFF if temperature < target
-    if (currentTemp > (targetTemperature + HYSTERESIS)) {
-      if (currentSwitchState == LOW) { // Only change if state is different
-        digitalWrite(controlPin, HIGH); // Assuming HIGH turns the cooling device ON
-        currentSwitchState = HIGH;
+    if (currentTemp > (targetTemperature + HYSTERESIS)) { // Hoter than desired, turn on fan
+      if (currentSwitchState == HIGH) { // Only change if state is different
+        digitalWrite(controlPin, LOW); // Assuming LOW turns the cooling device ON
+        currentSwitchState = LOW;
         Serial.println("Cooling ON (Temperature above target + hysteresis)");
       }
-    } else if (currentTemp < targetTemperature) {
-      if (currentSwitchState == HIGH) { // Only change if state is different
-        digitalWrite(controlPin, LOW);  // Turn cooling device OFF
-        currentSwitchState = LOW;
+    } else if (currentTemp < targetTemperature) { // Cooler than desired, turn fan off
+      if (currentSwitchState == LOW) { // Only change if state is different
+        digitalWrite(controlPin, HIGH);  // Turn cooling device OFF
+        currentSwitchState = HIGH;
         Serial.println("Cooling OFF (Temperature below target)");
       }
     }
   } else if (currentThermostatMode == HEATING) {
     // Heating mode: Turn ON if temperature < target - hysteresis, turn OFF if temperature > target
-    if (currentTemp < (targetTemperature - HYSTERESIS)) {
-      if (currentSwitchState == LOW) { // Only change if state is different
-        digitalWrite(controlPin, HIGH); // Assuming HIGH turns the heating device ON
-        currentSwitchState = HIGH;
+    if (currentTemp < (targetTemperature - HYSTERESIS)) { // Turn fan on
+      if (currentSwitchState == HIGH) { // Only change if state is different
+        digitalWrite(controlPin, LOW); // Assuming LOW turns the heating device ON
+        currentSwitchState = LOW;
         Serial.println("Heating ON (Temperature below target - hysteresis)");
       }
-    } else if (currentTemp > targetTemperature) {
-      if (currentSwitchState == HIGH) { // Only change if state is different
-        digitalWrite(controlPin, LOW);  // Turn heating device OFF
-        currentSwitchState = LOW;
+    } else if (currentTemp > targetTemperature) { // Turn fan off
+      if (currentSwitchState == LOW) { // Only change if state is different
+        digitalWrite(controlPin, HIGH);  // Turn heating device OFF
+        currentSwitchState = HIGH;
         Serial.println("Heating OFF (Temperature above target)");
       }
     }
-  } else if (currentThermostatMode == ON) { // New "ON" mode: always keep the switch HIGH
-    if (currentSwitchState == LOW) { // Only change if state is different
-      digitalWrite(controlPin, HIGH);
-      currentSwitchState = HIGH;
+  } else if (currentThermostatMode == ON) { // New "ON" mode: always keep the switch LOW
+    if (currentSwitchState == HIGH) { // Only change if state is different
+      digitalWrite(controlPin, LOW);
+      currentSwitchState = LOW;
       Serial.println("Thermostat ON mode: Switch is ON.");
     }
   } else { // OFF mode: Ensure the switch is always off
-    if (currentSwitchState == HIGH) { // Only change if state is different
-      digitalWrite(controlPin, LOW);  
-      currentSwitchState = LOW;
+    if (currentSwitchState == LOW) { // Only change if state is different
+      digitalWrite(controlPin, HIGH);  
+      currentSwitchState = HIGH;
       Serial.println("Thermostat OFF mode: Switch is OFF.");
     }
   }
