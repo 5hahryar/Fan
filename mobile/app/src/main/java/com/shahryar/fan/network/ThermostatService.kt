@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
  */
 object ThermostatService {
     // Base URL for the API - this should be updated with the actual API URL
-    private const val BASE_URL = "http://192.168.1.125/"
+    private const val BASE_URL = "http://192.168.88.242/"
     
     // Create OkHttpClient with logging
     private val okHttpClient = OkHttpClient.Builder()
