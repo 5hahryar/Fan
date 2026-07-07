@@ -1,5 +1,6 @@
 package com.shahryar.fan
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,8 +8,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,14 +18,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shahryar.fan.ui.theme.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import com.shahryar.fan.data.ThermostatStatus
 import com.shahryar.fan.network.ThermostatService
 import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.core.content.edit
 
 // Define fan modes
 enum class FanMode { OFF, ON, HEATING, COOLING }
@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThermostatScreen(modifier: Modifier = Modifier) {
+    var serverAddress by remember { mutableStateOf("") }
+    var settingsVisible by remember { mutableStateOf(false) }
     var currentTemperature by remember { mutableStateOf(22.0) }
     var targetTemperature by remember { mutableStateOf(22.0) }
     var fanMode by remember { mutableStateOf(FanMode.OFF) }
@@ -58,6 +60,7 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Determine temperature color based on value
     val temperatureColor = when {
@@ -75,7 +78,9 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
 
                 try {
                     // Make API call to get thermostat status
-                    val response = ThermostatService.api.getThermostatStatus()
+                    val response = ThermostatService.api.getThermostatStatus(
+                        ThermostatService.getStatusUrl(serverAddress)
+                    )
 
                     if (response.isSuccessful) {
                         // Update UI with response data
@@ -116,6 +121,7 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
 
                 // Make API call to set thermostat
                 val response = ThermostatService.api.setThermostat(
+                    ThermostatService.getSetThermostatUrl(serverAddress),
                     mode = modeString,
                     target = targetToSet
                 )
@@ -138,6 +144,11 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
     // Load initial data when the screen is first displayed
     LaunchedEffect(Unit) {
         refreshData()
+    }
+
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        serverAddress = prefs.getString("url", "") ?: ""
     }
 
     Column(
@@ -185,7 +196,7 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
+                            painter = painterResource(R.drawable.ic_refresh),
                             contentDescription = "Refresh",
                             tint = temperatureColor
                         )
@@ -310,18 +321,58 @@ fun ThermostatScreen(modifier: Modifier = Modifier) {
                     .padding(16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                Text(
-                    text = "Fan Mode",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = when (fanMode) {
-                        FanMode.OFF -> MaterialTheme.colorScheme.onSurface
-                        FanMode.ON -> FanBlue
-                        FanMode.HEATING -> WarmRed
-                        FanMode.COOLING -> CoolBlue
-                    },
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Fan Mode",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = when (fanMode) {
+                            FanMode.OFF -> MaterialTheme.colorScheme.onSurface
+                            FanMode.ON -> FanBlue
+                            FanMode.HEATING -> WarmRed
+                            FanMode.COOLING -> CoolBlue
+                        },
+                    )
+
+                    IconButton(onClick = {
+                        settingsVisible = !settingsVisible
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_settings),
+                            contentDescription = null
+                        )
+                    }
+                }
+
+                AnimatedVisibility(settingsVisible) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        OutlinedTextField(
+                            value = serverAddress,
+                            onValueChange = { serverAddress = it },
+                            placeholder = { Text("URL") },
+                            singleLine = true,
+                        )
+                        IconButton(onClick = {
+                            val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                            prefs.edit(commit = true) {
+                                putString("url", serverAddress)
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_save),
+                                contentDescription = null
+                            )
+                        }
+                    }
+                }
 
                 // Mode selection buttons
                 Row(

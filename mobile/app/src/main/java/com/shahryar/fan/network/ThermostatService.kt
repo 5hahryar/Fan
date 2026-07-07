@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit
  * Service class to provide an instance of the ThermostatApi
  */
 object ThermostatService {
-    // Base URL for the API - this should be updated with the actual API URL
-    private const val BASE_URL = "http://192.168.88.242/"
-    
+    fun getStatusUrl(baseUrl: String) = "${baseUrl}/thermostat/status"
+    fun getSetThermostatUrl(baseUrl: String) = "${baseUrl}/set_thermostat"
+
     // Create OkHttpClient with logging
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply {
@@ -29,10 +29,10 @@ object ThermostatService {
     private val gson: Gson = GsonBuilder()
         .setLenient()
         .create()
-    
+
     // Create Retrofit instance
     private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
+        .baseUrl("http://localhost")
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
